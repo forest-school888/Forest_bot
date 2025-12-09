@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Запись в Лесную школу</title>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    max-width: 480px;
+    margin: auto;
+}
+h2 {
+    margin-top: 0;
+    font-size: 24px;
+    text-align: center;
+}
+.section-title {
+    margin-top: 20px;
+    font-weight: 600;
+}
+.input-group {
+    margin-top: 12px;
+}
+label {
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+}
+input, select, textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+textarea { min-height: 70px; }
+
+.rules-box {
+    background: #fafafa;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 16px;
+}
+
+.btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    margin-top: 16px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.btn-offline { background: #333; }
+.btn-online { background: #1a73e8; }
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.loader {
+    display: none;
+    margin-top: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: #666;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h2>Запись в Лесную школу</h2>
+
+<!-- PROGRAM -->
+<div class="input-group">
+<label>Программа</label>
+<select id="program_type">
+    <option value="sleepover">🌙 Ночёвка в Лесной школе</option>
+    <option value="camp">🌳 Forest Camp</option>
+</select>
+</div>
+
+<!-- CHILD -->
+<p class="section-title">Информация о ребёнке</p>
+
+<div class="input-group">
+<label>Имя ребёнка</label>
+<input type="text" id="child_name" required>
+</div>
+
+<div class="input-group">
+<label>Возраст</label>
+<input type="number" id="child_age" min="3" max="18" required>
+</div>
+
+<!-- PARENT -->
+<p class="section-title">Информация о родителе</p>
+
+<div class="input-group">
+<label>Телефон</label>
+<input type="tel" id="parent_phone" placeholder="+995 ___ __ __ __">
+</div>
+
+<!-- FOOD -->
+<p class="section-title">Дополнительно</p>
+
+<div class="input-group">
+<label>Питание / аллергии</label>
+<textarea id="food_comment"></textarea>
+</div>
+
+<div class="input-group">
+<label>Особенности поведения</label>
+<textarea id="behavior_comment"></textarea>
+</div>
+
+<!-- RULES -->
+<div class="rules-box">
+<b>Перед ночёвкой важно ознакомиться с правилами:</b><br><br>
+• дети следуют инструкциям педагогов<br>
+• телефоны остаются у родителей<br>
+• ребёнка не отпускаем без согласования<br>
+• при плохом самочувствии нужно сообщить взрослым<br><br>
+
+<label>
+<input type="checkbox" id="rules_agree"> Я согласен с правилами
+</label>
+</div>
+
+<!-- BUTTONS -->
+<button class="btn btn-offline" id="pay_offline">💵 Оплачу на месте</button>
+<button class="btn btn-online" id="pay_online">💳 Оплатить онлайн</button>
+
+<div class="loader" id="loader">Отправка данных...</div>
+
+</div>
+
+<script>
+const tg = Telegram.WebApp;
+tg.expand();
+
+/* ---------- PHONE MASK ---------- */
+document.getElementById("parent_phone").addEventListener("input", function(e) {
+    let v = e.target.value.replace(/\D/g, "");
+    if (!v.startsWith("995")) v = "995" + v;
+    e.target.value = "+" + v.replace(/(\d{3})(\d{3})(\d{2})(\d{2})(\d{2})/, "$1 $2 $3 $4 $5");
+});
+
+/* ---------- URL PARAMS PREFILL ---------- */
+const params = new URLSearchParams(window.location.search);
+
+function setIfExists(id, key) {
+    if (params.has(key)) document.getElementById(id).value = params.get(key);
+}
+
+setIfExists("child_name", "child_name");
+setIfExists("child_age", "child_age");
+setIfExists("parent_phone", "phone");
+setIfExists("food_comment", "food");
+setIfExists("behavior_comment", "behavior");
+
+/* fallback chat_id if not provided by Telegram */
+let parentChatId = tg?.initDataUnsafe?.user?.id || params.get("chat_id") || null;
+
+/* ---------- VALIDATION ---------- */
+function validateForm() {
+    if (!document.getElementById("child_name").value) return false;
+    if (!document.getElementById("child_age").value) return false;
+    if (!document.getElementById("parent_phone").value) return false;
+    if (!document.getElementById("rules_agree").checked) return false;
+    return true;
+}
+
+/* ---------- SUBMIT ---------- */
+function submitForm(paymentMethod) {
+    if (!validateForm()) {
+        alert("Пожалуйста, заполните все поля и согласитесь с правилами.");
+        return;
+    }
+
+    document.getElementById("loader").style.display = "block";
+
+    const data = {
+        program_type: document.getElementById("program_type").value,
+        child_name: document.getElementById("child_name").value,
+        child_age: document.getElementById("child_age").value,
+        parent_phone: document.getElementById("parent_phone").value,
+        food_comment: document.getElementById("food_comment").value,
+        behavior_comment: document.getElementById("behavior_comment").value,
+        rules_agree: document.getElementById("rules_agree").checked,
+        payment_method: paymentMethod,
+        parent_chat_id: parentChatId,
+        timestamp: new Date().toISOString()
+    };
+
+    tg.sendData(JSON.stringify(data));
+}
+
+/* ---------- BUTTONS ---------- */
+document.getElementById("pay_offline").onclick = () => submitForm("offline");
+document.getElementById("pay_online").onclick = () => submitForm("online");
+</script>
+
+</body>
+</html>
