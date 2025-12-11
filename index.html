@@ -215,6 +215,10 @@ function submitForm(paymentMethod) {
     };
 
     tg.sendData(JSON.stringify(data));
+
+    console.log("SENDING DATA TO TELEGRAM:", data);
+alert("Форма отправлена!");
+    
     setTimeout(() => tg.close(), 500);
 }
 
