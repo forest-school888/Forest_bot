@@ -214,12 +214,13 @@ function submitForm(paymentMethod) {
         timestamp: new Date().toISOString()
     };
 
-    tg.sendData(JSON.stringify(data));
-
-    console.log("SENDING DATA TO TELEGRAM:", data);
+   console.log("SENDING DATA TO TELEGRAM:", data);
 alert("Форма отправлена!");
-    
-    setTimeout(() => tg.close(), 500);
+
+tg.sendData(JSON.stringify(data));
+
+setTimeout(() => tg.close(), 500);
+
 }
 
 /* ---------- BUTTONS ---------- */
